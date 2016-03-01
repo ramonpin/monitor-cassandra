@@ -1,0 +1,8 @@
+servers:
+  - srv1
+  - srv2
+  - srv3
+
+user:     localuser
+password: mypass
+port:     22
