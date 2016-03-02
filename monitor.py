@@ -1,8 +1,18 @@
+import sys
 import re
 import time
+import json
+import signal
+
 from io import FileIO
 from paramiko import SSHClient, AutoAddPolicy
 from yaml import load, Loader
+
+# Para detener el proceso con CTRL+C
+def sig_handler(signum, frame):
+    global running
+    print 'Parada solicitada por el usuario...'
+    running = False
 
 
 def to_snakecase(name):
@@ -113,6 +123,33 @@ def top(machinename, sshcli):
     })
 
 
+def disk(machinename, sshcli):
+    """
+    Gets disk metrics for machine
+        :param machinename: monitored machine name to add to result dict
+        :param sshcli: SSHClient to the monitored machine
+    """
+    stdin, stdout, stderr = sshcli.exec_command("vmstat -d -n")
+    # Skip header
+    stdout.readline()
+    stdout.readline()
+
+    disks = []
+    line = stdout.readline()
+    while(line):
+        data = re.split(r'[ ]+', line.strip())
+        if not re.match(r'ram|loop', data[0]):
+            disks.append({data[0]: data[1:11]})
+        line = stdout.readline()
+
+    return dict({
+        "type":       "disk",
+        "machine":    machinename,
+        "ts":         time.time(),
+        "disks":      disks
+    })
+
+
 def nt_gcstats(machinename, sshcli):
     """
     Gets nodetool gcstats metrics for machine
@@ -187,15 +224,23 @@ def connections(conf):
 # ###################################################################################
 config = load(FileIO('./connection.yml', 'r'), Loader)
 conns = connections(config)
+flog = file(sys.argv[1], 'w')
 
-while True:
+print "Monitor en ejecucion..."
+
+signal.signal(signal.SIGINT, sig_handler)
+running = True
+while running:
 
     for server in config['servers']:
         ssh = conns.get(server)
-        print vmstat(server, ssh)
-        print free(server,   ssh)
-        print top(server,    ssh)
-        print nt_gcstats(server,    ssh)
-        print nt_tpstats(server,    ssh)
+        flog.write(json.dumps(vmstat(server, ssh))     + "\n")
+        flog.write(json.dumps(free(server, ssh))       + "\n")
+        flog.write(json.dumps(top(server, ssh))        + "\n")
+        flog.write(json.dumps(disk(server, ssh))       + "\n")
+        flog.write(json.dumps(nt_gcstats(server, ssh)) + "\n")
+        flog.write(json.dumps(nt_tpstats(server, ssh)) + "\n")
 
-    time.sleep(1)
+    time.sleep(5)
+
+flog.close()
