@@ -5,6 +5,12 @@ from paramiko import SSHClient, AutoAddPolicy
 from yaml import load, Loader
 
 
+def to_snakecase(name):
+    s0 = re.sub(r'-', r'', name)
+    s1 = re.sub(r'(.)([A-Z][a-z]+)', r'\1_\2', s0)
+    return re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
+
 def vmstat(machinename, sshcli):
     """
     Gets vmstat metrics for machine
@@ -18,7 +24,7 @@ def vmstat(machinename, sshcli):
     stdout.readline()
 
     # Get data
-    data = re.split("[ ]+", stdout.readline().strip())
+    data = re.split(r'[ ]+', stdout.readline().strip())
     return dict({
        "type":      "vmstat",
        "machine":   machinename,
@@ -54,11 +60,11 @@ def free(machinename, sshcli):
     # Skip header
     stdout.readline()
     # Get mem data
-    mdata = re.split("[ ]+", stdout.readline().strip())
+    mdata = re.split(r'[ ]+', stdout.readline().strip())
     # Skip header
     stdout.readline()
     # Get swap data
-    sdata = re.split("[ ]+", stdout.readline().strip())
+    sdata = re.split(r'[ ]+', stdout.readline().strip())
 
     return dict({
         "type":        "free",
@@ -87,8 +93,8 @@ def top(machinename, sshcli):
     stdout.readline()
 
     # tasks/cpu data
-    tdata = re.split("[ ]+", stdout.readline().strip())
-    cdata = re.split("[ ]+", stdout.readline().strip())
+    tdata = re.split(r'[ ]+', stdout.readline().strip())
+    cdata = re.split(r'[ ]+', stdout.readline().strip())
 
     return dict({
         "type":       "top",
@@ -99,11 +105,11 @@ def top(machinename, sshcli):
         "tsk-sleep":  tdata[5],
         "tsk-stop":   tdata[7],
         "tsk-zombie": tdata[9],
-        "cpu-user":   re.sub("%[a-z]+,", "", cdata[1]),
-        "cpu-sys":    re.sub("%[a-z]+,", "", cdata[2]),
-        "cpu-nice":   re.sub("%[a-z]+,", "", cdata[3]),
-        "cpu-idle":   re.sub("%[a-z]+,", "", cdata[4]),
-        "cpu-wait":   re.sub("%[a-z]+,", "", cdata[5])
+        "cpu-user":   re.sub(r'%[a-z]+,', '', cdata[1]),
+        "cpu-sys":    re.sub(r'%[a-z]+,', '', cdata[2]),
+        "cpu-nice":   re.sub(r'%[a-z]+,', '', cdata[3]),
+        "cpu-idle":   re.sub(r'%[a-z]+,', '', cdata[4]),
+        "cpu-wait":   re.sub(r'%[a-z]+,', '', cdata[5])
     })
 
 
@@ -117,9 +123,10 @@ def nt_gcstats(machinename, sshcli):
 
     # Skip header
     stdout.readline()
+    stdout.readline()
 
     # garbage collector data
-    data = re.split("[ ]+", stdout.readline().strip())
+    data = re.split(r'[ ]+', stdout.readline().strip())
 
     return dict({
         "type":             "gcstats",
@@ -133,6 +140,35 @@ def nt_gcstats(machinename, sshcli):
         "collections":      data[5],
         "direct-memory":    data[6]
     })
+
+
+def nt_tpstats(machinename, sshcli):
+    """
+    Gets nodetool tpstats metrics for machine
+       :param machinename: monitored machine name to add to result dict
+       :param sshcli: SSHClient to the monitored machine
+    """
+    stdin, stdout, stderr = sshcli.exec_command("nodetool tpstats")
+
+    # Skip header
+    stdout.readline()
+    stdout.readline()
+
+    # dict to collect all metrics
+    metrics = dict({
+        "type":    "tpstats",
+        "machine": machinename,
+        "ts":      time.time(),
+    })
+
+    # process each metric
+    for i in range(0, 20):
+        data = re.split(r'[ ]+', stdout.readline().strip())
+        metrics.update({
+            to_snakecase(data[0]): map(int, data[1:6])
+        })
+
+    return metrics
 
 
 def connections(conf):
@@ -149,7 +185,7 @@ def connections(conf):
 # ###################################################################################
 # # START                                                                          ##
 # ###################################################################################
-config = load(FileIO("./connection.yml", "r"), Loader)
+config = load(FileIO('./connection.yml', 'r'), Loader)
 conns = connections(config)
 
 while True:
@@ -160,4 +196,6 @@ while True:
         print free(server,   ssh)
         print top(server,    ssh)
         print nt_gcstats(server,    ssh)
-        time.sleep(2)
+        print nt_tpstats(server,    ssh)
+
+    time.sleep(1)
