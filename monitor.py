@@ -5,8 +5,10 @@ import json
 import signal
 
 from io import FileIO
-from paramiko import SSHClient, AutoAddPolicy
+from elasticsearch import Elasticsearch
 from yaml import load, Loader
+from paramiko import SSHClient, AutoAddPolicy
+
 
 # Para detener el proceso con CTRL+C
 def sig_handler(signum, frame):
@@ -136,7 +138,7 @@ def disk(machinename, sshcli):
 
     disks = []
     line = stdout.readline()
-    while(line):
+    while line:
         data = re.split(r'[ ]+', line.strip())
         if not re.match(r'ram|loop', data[0]):
             disks.append({data[0]: data[1:11]})
@@ -214,17 +216,21 @@ def connections(conf):
         sshcli = SSHClient()
         sshcli.load_system_host_keys()
         sshcli.set_missing_host_key_policy(AutoAddPolicy())
-        sshcli.connect(srv, conf['port'], username=conf['user'], password=conf['password'])
+        sshcli.connect(srv, port=conf['ssh']['port'], username=conf['ssh']['user'], password=conf['ssh']['password'])
         new_conns.update({srv: sshcli})
 
     return new_conns
+
+
+def index_data(conf, esins, body):
+    esins.index(index=conf['elastic']['index'], doc_type=body['type'], body=json.dumps(body))
 
 # ###################################################################################
 # # START                                                                          ##
 # ###################################################################################
 config = load(FileIO('./connection.yml', 'r'), Loader)
 conns = connections(config)
-flog = file(sys.argv[1], 'w')
+es = Elasticsearch(config['elastic']['hosts'], port=config['elastic']['port'])
 
 print "Monitor en ejecucion..."
 
@@ -234,13 +240,11 @@ while running:
 
     for server in config['servers']:
         ssh = conns.get(server)
-        flog.write(json.dumps(vmstat(server, ssh))     + "\n")
-        flog.write(json.dumps(free(server, ssh))       + "\n")
-        flog.write(json.dumps(top(server, ssh))        + "\n")
-        flog.write(json.dumps(disk(server, ssh))       + "\n")
-        flog.write(json.dumps(nt_gcstats(server, ssh)) + "\n")
-        flog.write(json.dumps(nt_tpstats(server, ssh)) + "\n")
+        index_data(config, es, vmstat(server, ssh))
+        index_data(config, es, free(server, ssh))
+        index_data(config, es, top(server, ssh))
+        index_data(config, es, disk(server, ssh))
+        index_data(config, es, nt_gcstats(server, ssh))
+        index_data(config, es, nt_tpstats(server, ssh))
 
-    time.sleep(5)
-
-flog.close()
+    time.sleep(config['sleep'])

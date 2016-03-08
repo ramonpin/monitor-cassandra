@@ -1,8 +1,16 @@
 servers:
-  - srv1
-  - srv2
-  - srv3
+  - server1
+  - server2
+  - server3
 
-user:     localuser
-password: mypass
-port:     22
+ssh:
+  user:     myuser
+  password: mypassword
+  port:     22
+
+elastic:
+  hosts:
+    - elastichost1
+    - elastichost2
+  port: 9200
+  index: myindex
