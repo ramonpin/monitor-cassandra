@@ -1,4 +1,3 @@
-import sys
 import re
 import time
 import json
@@ -10,8 +9,13 @@ from yaml import load, Loader
 from paramiko import SSHClient, AutoAddPolicy
 
 
-# Para detener el proceso con CTRL+C
+# noinspection PyUnusedLocal
 def sig_handler(signum, frame):
+    """
+    Para detener el proceso con CTRL+C
+        :param signum: not used
+        :param frame: not used
+    """
     global running
     print 'Parada solicitada por el usuario...'
     running = False
@@ -28,6 +32,7 @@ def vmstat(machinename, sshcli):
     Gets vmstat metrics for machine
         :param machinename: monitored machine name to add to result dict
         :param sshcli: SSHClient to the monitored machine
+        :return: Metrics as a dict
     """
     stdin, stdout, stderr = sshcli.exec_command("vmstat")
 
@@ -66,6 +71,7 @@ def free(machinename, sshcli):
     Gets free metrics for machine
         :param machinename: monitored machine name to add to result dict
         :param sshcli: SSHClient to the monitored machine
+        :return: Metrics as a dict
     """
     stdin, stdout, stderr = sshcli.exec_command("free")
 
@@ -99,6 +105,7 @@ def top(machinename, sshcli):
     Gets top metrics for machine
         :param machinename: monitored machine name to add to result dict
         :param sshcli: SSHClient to the monitored machine
+        :return: Metrics as a dict
     """
     stdin, stdout, stderr = sshcli.exec_command("top -b -n 1 | head -3")
     # Skip header
@@ -130,6 +137,7 @@ def disk(machinename, sshcli):
     Gets disk metrics for machine
         :param machinename: monitored machine name to add to result dict
         :param sshcli: SSHClient to the monitored machine
+        :return: Metrics as a dict
     """
     stdin, stdout, stderr = sshcli.exec_command("vmstat -d -n")
     # Skip header
@@ -157,6 +165,7 @@ def nt_gcstats(machinename, sshcli):
     Gets nodetool gcstats metrics for machine
         :param machinename: monitored machine name to add to result dict
         :param sshcli: SSHClient to the monitored machine
+        :return: Metrics as a dict
     """
     stdin, stdout, stderr = sshcli.exec_command("nodetool gcstats")
 
@@ -184,8 +193,9 @@ def nt_gcstats(machinename, sshcli):
 def nt_tpstats(machinename, sshcli):
     """
     Gets nodetool tpstats metrics for machine
-       :param machinename: monitored machine name to add to result dict
-       :param sshcli: SSHClient to the monitored machine
+        :param machinename: monitored machine name to add to result dict
+        :param sshcli: SSHClient to the monitored machine
+        :return: Metrics as a dict
     """
     stdin, stdout, stderr = sshcli.exec_command("nodetool tpstats")
 
