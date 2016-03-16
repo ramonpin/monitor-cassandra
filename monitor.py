@@ -226,18 +226,23 @@ def connections(conf):
         sshcli = SSHClient()
         sshcli.load_system_host_keys()
         sshcli.set_missing_host_key_policy(AutoAddPolicy())
-        sshcli.connect(srv, port=conf['ssh']['port'], username=conf['ssh']['user'], password=conf['ssh']['password'])
+        sshcli.connect(srv,
+                       port=conf['ssh']['port'],
+                       username=conf['ssh']['user'],
+                       password=conf['ssh']['password'])
         new_conns.update({srv: sshcli})
 
     return new_conns
 
 
 def index_data(conf, esins, body):
-    esins.index(index=conf['elastic']['index'], doc_type=body['type'], body=json.dumps(body))
+    esins.index(index=conf['elastic']['index'],
+                doc_type=body['type'],
+                body=json.dumps(body))
 
-# ###################################################################################
-# # START                                                                          ##
-# ###################################################################################
+# #############################################################################
+# # START                                                                    ##
+# #############################################################################
 config = load(FileIO('./connection.yml', 'r'), Loader)
 conns = connections(config)
 es = Elasticsearch(config['elastic']['hosts'], port=config['elastic']['port'])
